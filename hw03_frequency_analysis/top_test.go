@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Change to true if needed.
-var taskWithAsteriskIsCompleted = false
+var taskWithAsteriskIsCompleted = true
 
 var text = `Как видите, он  спускается  по  лестнице  вслед  за  своим
 	другом   Кристофером   Робином,   головой   вниз,  пересчитывая
@@ -79,4 +78,95 @@ func TestTop10(t *testing.T) {
 			require.Equal(t, expected, Top10(text))
 		}
 	})
+}
+
+func TestTop10Normalized(t *testing.T) {
+	positiveTests := []struct {
+		input    string
+		expected []string
+	}{
+		{
+			input: "Три ТРИ три",
+			expected: []string{
+				"три",
+			},
+		},
+		{
+			input:    "- - - hello",
+			expected: []string{"hello"},
+		},
+		{
+			input:    "--- hello",
+			expected: []string{"---", "hello"},
+		},
+		{
+			input: `Страх убивает разум.
+				 Страх - это малая смерть, несущая забвение. 
+				 Я смотрю в лицо моему страху, я дам ему овладеть мною и пройти сквозь меня.
+                 И когда он пройдет сквозь меня, я обернусь и посмотрю на тропу страха.
+				 Там, где прошел страх, не останется ничего. 
+				 Там, где прошел страх, останусь только я.`,
+			expected: []string{
+				"страх",  // 4
+				"я",      // 4
+				"и",      // 3
+				"где",    // 2
+				"меня",   // 2
+				"прошел", // 2
+				"сквозь", // 2
+				"там",    // 2
+				"в",      // 1
+				"дам",    // 1
+			},
+		},
+		{
+			input:    "a b c d e f g h i j k l m n o",
+			expected: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"},
+		},
+	}
+
+	for _, test := range positiveTests {
+		t.Run(test.input, func(t *testing.T) {
+			result := Top10(test.input)
+			require.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestTop10NormalizedNegative(t *testing.T) {
+	negativeTests := []struct {
+		input      string
+		unexpected []string
+	}{
+		{
+			input: "Слово слово! слово слово'",
+			unexpected: []string{
+				"Слово",
+				"слово",
+				"слово!",
+				"слово'",
+			},
+		},
+		{
+			input: "-",
+			unexpected: []string{
+				"-",
+			},
+		},
+		{
+			input: "какой-то какойто",
+			unexpected: []string{
+				"какой",
+				"то",
+				"-",
+			},
+		},
+	}
+
+	for _, test := range negativeTests {
+		t.Run(test.input, func(t *testing.T) {
+			result := Top10(test.input)
+			require.NotEqual(t, test.unexpected, result)
+		})
+	}
 }
