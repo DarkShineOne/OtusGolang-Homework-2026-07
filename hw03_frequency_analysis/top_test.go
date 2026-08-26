@@ -133,8 +133,8 @@ func TestTop10Normalized(t *testing.T) {
 	}
 }
 
-func TestTop10NormalizedNegative(t *testing.T) {
-	negativeTests := []struct {
+func TestTop10NormalizedInvalid(t *testing.T) {
+	InvalidTests := []struct {
 		input      string
 		unexpected []string
 	}{
@@ -163,7 +163,7 @@ func TestTop10NormalizedNegative(t *testing.T) {
 		},
 	}
 
-	for _, test := range negativeTests {
+	for _, test := range InvalidTests {
 		t.Run(test.input, func(t *testing.T) {
 			result := Top10(test.input)
 			require.NotEqual(t, test.unexpected, result)
