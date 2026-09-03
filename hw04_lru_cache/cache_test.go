@@ -66,6 +66,57 @@ func TestCache(t *testing.T) {
 		require.Equal(t, 4, val)
 	})
 
+	t.Run("clear resets capacity", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("A", 1)
+		c.Set("B", 2)
+		c.Set("C", 3)
+		c.Clear()
+
+		c.Set("D", 4)
+		c.Set("E", 5)
+		c.Set("F", 6)
+
+		for _, tc := range []struct {
+			key      Key
+			val      interface{}
+			exists   bool
+		}{
+			{"D", 4, true},
+			{"E", 5, true},
+			{"F", 6, true},
+			{"A", nil, false},
+			{"B", nil, false},
+			{"C", nil, false},
+		} {
+			val, ok := c.Get(tc.key)
+			require.Equal(t, tc.exists, ok)
+			if tc.exists {
+				require.Equal(t, tc.val, val)
+			}
+		}
+	})
+
+	// после Clear() можно снова полностью заполнить кэш до capacity
+	// (баг: если не очищать очередь, кэш теряет ёмкость после Clear)
+	t.Run("clear then refill to full capacity", func(t *testing.T) {
+		c := NewCache(2)
+		c.Set("A", 1)
+		c.Set("B", 2)
+		c.Clear()
+
+		c.Set("A", 1)
+		c.Set("B", 2)
+
+		val, ok := c.Get("A")
+		require.True(t, ok)
+		require.Equal(t, 1, val)
+
+		val, ok = c.Get("B")
+		require.True(t, ok)
+		require.Equal(t, 2, val)
+	})
+
 	// выталкивания давно используемых элементов
 	t.Run("lru overflow", func(t *testing.T) {
 		c := NewCache(3)
