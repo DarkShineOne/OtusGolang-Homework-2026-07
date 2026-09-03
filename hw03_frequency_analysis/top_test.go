@@ -6,9 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Change to true if needed.
-var taskWithAsteriskIsCompleted = false
-
 var text = `Как видите, он  спускается  по  лестнице  вслед  за  своим
 	другом   Кристофером   Робином,   головой   вниз,  пересчитывая
 	ступеньки собственным затылком:  бум-бум-бум.  Другого  способа
@@ -44,26 +41,12 @@ var text = `Как видите, он  спускается  по  лестни�
 		В этот вечер...`
 
 func TestTop10(t *testing.T) {
-	t.Run("no words in empty string", func(t *testing.T) {
-		require.Len(t, Top10(""), 0)
-	})
+	t.Run("basic variant", func(t *testing.T) {
+		t.Run("empty string", func(t *testing.T) {
+			require.Len(t, Top10(""), 0)
+		})
 
-	t.Run("positive test", func(t *testing.T) {
-		if taskWithAsteriskIsCompleted {
-			expected := []string{
-				"а",         // 8
-				"он",        // 8
-				"и",         // 6
-				"ты",        // 5
-				"что",       // 5
-				"в",         // 4
-				"его",       // 4
-				"если",      // 4
-				"кристофер", // 4
-				"не",        // 4
-			}
-			require.Equal(t, expected, Top10(text))
-		} else {
+		t.Run("positive test", func(t *testing.T) {
 			expected := []string{
 				"он",        // 8
 				"а",         // 6
@@ -77,6 +60,119 @@ func TestTop10(t *testing.T) {
 				"то",        // 4
 			}
 			require.Equal(t, expected, Top10(text))
-		}
+		})
+
+		t.Run("positive custom test", func(t *testing.T) {
+			tests := []struct {
+				input    string
+				expected []string
+			}{
+				{
+					input: "Слово слово! слово слово'",
+					expected: []string{
+						"Слово",
+						"слово",
+						"слово!",
+						"слово'",
+					},
+				},
+				{
+					input: "- - - hello",
+					expected: []string{
+						"-",
+						"hello",
+					},
+				},
+				{
+					input: "какой-то какойто",
+					expected: []string{
+						"какой-то",
+						"какойто",
+					},
+				},
+			}
+
+			for _, test := range tests {
+				t.Run(test.input, func(t *testing.T) {
+					result := Top10(test.input)
+					require.Equal(t, test.expected, result)
+				})
+			}
+		})
+	})
+
+	t.Run("normalized variant", func(t *testing.T) {
+		t.Run("empty string", func(t *testing.T) {
+			require.Len(t, Top10Normalized(""), 0)
+		})
+
+		t.Run("positive test", func(t *testing.T) {
+			expected := []string{
+				"а",         // 8
+				"он",        // 8
+				"и",         // 6
+				"ты",        // 5
+				"что",       // 5
+				"в",         // 4
+				"его",       // 4
+				"если",      // 4
+				"кристофер", // 4
+				"не",        // 4
+			}
+			require.Equal(t, expected, Top10Normalized(text))
+		})
+
+		t.Run("positive custom test", func(t *testing.T) {
+			positiveTests := []struct {
+				input    string
+				expected []string
+			}{
+				{
+					input: "Три ТРИ три",
+					expected: []string{
+						"три",
+					},
+				},
+				{
+					input:    "- - - hello",
+					expected: []string{"hello"},
+				},
+				{
+					input:    "--- hello",
+					expected: []string{"---", "hello"},
+				},
+				{
+					input: `Страх убивает разум.
+				 Страх - это малая смерть, несущая забвение. 
+				 Я смотрю в лицо моему страху, я дам ему овладеть мною и пройти сквозь меня.
+                 И когда он пройдет сквозь меня, я обернусь и посмотрю на тропу страха.
+				 Там, где прошел страх, не останется ничего. 
+				 Там, где прошел страх, останусь только я.`,
+					expected: []string{
+						"страх",  // 4
+						"я",      // 4
+						"и",      // 3
+						"где",    // 2
+						"меня",   // 2
+						"прошел", // 2
+						"сквозь", // 2
+						"там",    // 2
+						"в",      // 1
+						"дам",    // 1
+					},
+				},
+				{
+					input:    "a b c d e f g h i j k l m n o",
+					expected: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"},
+				},
+			}
+
+			for _, test := range positiveTests {
+				t.Run(test.input, func(t *testing.T) {
+					result := Top10Normalized(test.input)
+					require.Equal(t, test.expected, result)
+				})
+			}
+		})
 	})
 }
