@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -118,16 +117,13 @@ func TestRun(t *testing.T) {
 		tasksCount := 20
 		maxErrorsCount := 1
 
-		runningTasks := 0
-		mu := &sync.Mutex{}
+		var runTasksCount int32
 		startCh := make(chan struct{})
 
 		tasks := make([]Task, 0, tasksCount)
 		for i := 0; i < tasksCount; i++ {
 			tasks = append(tasks, func() error {
-				mu.Lock()
-				runningTasks++
-				mu.Unlock()
+				atomic.AddInt32(&runTasksCount, 1)
 
 				<-startCh
 
@@ -144,7 +140,8 @@ func TestRun(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-			return runningTasks == workersCount
+
+			return atomic.LoadInt32(&runTasksCount) == int32(workersCount)
 		}, time.Second, time.Millisecond, "tasks are not running concurrently")
 
 		close(startCh)
