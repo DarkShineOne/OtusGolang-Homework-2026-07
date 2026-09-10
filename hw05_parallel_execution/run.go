@@ -25,7 +25,7 @@ func Run(tasks []Task, n, m int) error {
 	var wg sync.WaitGroup
 	var errs atomic.Int64
 	c := make(chan Task, n)
-	limit := int64(n)
+	limit := int64(m)
 
 	for range n {
 		wg.Add(1)

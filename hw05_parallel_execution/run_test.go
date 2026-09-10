@@ -114,7 +114,6 @@ func TestRun(t *testing.T) {
 		for i := 0; i < tasksCount; i++ {
 			tasks = append(tasks, func() error {
 				atomic.AddInt32(&runTasksCount, 1)
-
 				<-startCh
 
 				return nil
@@ -134,9 +133,34 @@ func TestRun(t *testing.T) {
 		}, time.Second, time.Millisecond, "tasks are not running concurrently")
 
 		close(startCh)
-
 		<-done
 
 		require.NoError(t, runErr)
+	})
+
+	t.Run("some tasks return errors but below limit", func(t *testing.T) {
+		tasksCount := 10
+		errorTasksCount := 3
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			tasks = append(tasks, func() error {
+				atomic.AddInt32(&runTasksCount, 1)
+				if i < errorTasksCount {
+					return fmt.Errorf("error from task %d", i)
+				}
+				return nil
+			})
+		}
+
+		workersCount := 3
+		maxErrorsCount := 5
+
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.False(t, errors.Is(err, ErrErrorsLimitExceeded), "error limit should not be exceeded: got %v", err)
+		require.Equal(t, int32(tasksCount), runTasksCount, "all tasks should have been executed")
 	})
 }
