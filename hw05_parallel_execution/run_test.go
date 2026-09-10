@@ -130,7 +130,6 @@ func TestRun(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-
 			return atomic.LoadInt32(&runTasksCount) == int32(workersCount)
 		}, time.Second, time.Millisecond, "tasks are not running concurrently")
 

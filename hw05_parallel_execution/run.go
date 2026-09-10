@@ -2,12 +2,16 @@ package hw05parallelexecution
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"sync/atomic"
 )
 
 var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
+
 var ErrAvailableWorkers = errors.New("no available workers")
+
+var ErrIntConversion = errors.New("int exceeds limit")
 
 type Task func() error
 
@@ -22,27 +26,30 @@ func Run(tasks []Task, n, m int) error {
 	}
 
 	var wg sync.WaitGroup
-	var errs int32
+	var errs atomic.Int32
 	c := make(chan Task, n)
-	limit := int32(m)
+	limit, err := safeIntToInt32(m)
+	if err != nil {
+		return err
+	}
 
 	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for t := range c {
-				if atomic.LoadInt32(&errs) >= limit {
+				if errs.Load() >= limit {
 					return
 				}
 				if t() != nil {
-					atomic.AddInt32(&errs, 1)
+					errs.Add(1)
 				}
 			}
 		}()
 	}
 
 	for _, t := range tasks {
-		if atomic.LoadInt32(&errs) >= limit {
+		if errs.Load() >= limit {
 			break
 		}
 		c <- t
@@ -51,9 +58,16 @@ func Run(tasks []Task, n, m int) error {
 	close(c)
 	wg.Wait()
 
-	if atomic.LoadInt32(&errs) >= limit {
+	if errs.Load() >= limit {
 		return ErrErrorsLimitExceeded
 	}
 
 	return nil
+}
+
+func safeIntToInt32(val int) (int32, error) {
+	if val > math.MaxInt32 || val < math.MinInt32 {
+		return 0, ErrIntConversion
+	}
+	return int32(val), nil
 }
