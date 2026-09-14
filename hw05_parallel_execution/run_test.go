@@ -67,4 +67,100 @@ func TestRun(t *testing.T) {
 		require.Equal(t, int32(tasksCount), runTasksCount, "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
 	})
+
+	t.Run("task zero max error", func(t *testing.T) {
+		tasksCount := 1
+		tasks := make([]Task, 0, tasksCount)
+
+		for i := 0; i < tasksCount; i++ {
+			tasks = append(tasks, func() error {
+				return nil
+			})
+		}
+
+		workersCount := 1
+		maxErrorsCount := 0
+
+		err := Run(tasks, workersCount, maxErrorsCount)
+		require.Error(t, err)
+	})
+
+	t.Run("workers zero max error", func(t *testing.T) {
+		tasksCount := 1
+		tasks := make([]Task, 0, tasksCount)
+
+		for i := 0; i < tasksCount; i++ {
+			tasks = append(tasks, func() error {
+				return nil
+			})
+		}
+
+		workersCount := 0
+		maxErrorsCount := 1
+
+		err := Run(tasks, workersCount, maxErrorsCount)
+		require.Error(t, err)
+	})
+
+	t.Run("concurrency without time.Sleep", func(t *testing.T) {
+		workersCount := 5
+		tasksCount := 20
+		maxErrorsCount := 1
+
+		var runTasksCount int32
+		startCh := make(chan struct{})
+
+		tasks := make([]Task, 0, tasksCount)
+		for i := 0; i < tasksCount; i++ {
+			tasks = append(tasks, func() error {
+				atomic.AddInt32(&runTasksCount, 1)
+				<-startCh
+
+				return nil
+			})
+		}
+
+		var runErr error
+		done := make(chan struct{})
+
+		go func() {
+			defer close(done)
+			runErr = Run(tasks, workersCount, maxErrorsCount)
+		}()
+
+		require.Eventually(t, func() bool {
+			return atomic.LoadInt32(&runTasksCount) == int32(workersCount)
+		}, time.Second, time.Millisecond, "tasks are not running concurrently")
+
+		close(startCh)
+		<-done
+
+		require.NoError(t, runErr)
+	})
+
+	t.Run("some tasks return errors but below limit", func(t *testing.T) {
+		tasksCount := 10
+		errorTasksCount := 3
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			tasks = append(tasks, func() error {
+				atomic.AddInt32(&runTasksCount, 1)
+				if i < errorTasksCount {
+					return fmt.Errorf("error from task %d", i)
+				}
+				return nil
+			})
+		}
+
+		workersCount := 3
+		maxErrorsCount := 5
+
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.False(t, errors.Is(err, ErrErrorsLimitExceeded), "error limit should not be exceeded: got %v", err)
+		require.Equal(t, int32(tasksCount), runTasksCount, "all tasks should have been executed")
+	})
 }
