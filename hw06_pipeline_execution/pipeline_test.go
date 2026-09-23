@@ -145,6 +145,111 @@ func TestAllStageStop(t *testing.T) {
 		wg.Wait()
 
 		require.Len(t, result, 0)
-
 	})
+}
+
+func TestExecutePipelineNoStages(t *testing.T) {
+	in := make(Bi)
+	data := []int{1, 2, 3}
+
+	go func() {
+		for _, v := range data {
+			in <- v
+		}
+		close(in)
+	}()
+
+	result := make([]interface{}, 0, 3)
+	for v := range ExecutePipeline(in, nil) {
+		result = append(result, v)
+	}
+
+	require.Equal(t, []interface{}{1, 2, 3}, result)
+}
+
+func TestExecutePipelineDoneAlreadyClosed(t *testing.T) {
+	in := make(Bi)
+	done := make(Bi)
+	close(done)
+
+	g := func(f func(v interface{}) interface{}) Stage {
+		return func(in In) Out {
+			out := make(Bi)
+			go func() {
+				defer close(out)
+				for v := range in {
+					time.Sleep(sleepPerStage)
+					out <- f(v)
+				}
+			}()
+			return out
+		}
+	}
+
+	stages := []Stage{
+		g(func(v interface{}) interface{} { return v }),
+		g(func(v interface{}) interface{} { return v }),
+	}
+
+	out := ExecutePipeline(in, done, stages...)
+
+	start := time.Now()
+	result := make([]interface{}, 0, 10)
+	for v := range out {
+		result = append(result, v)
+	}
+
+	require.Empty(t, result)
+	require.Less(t, int64(time.Since(start)), int64(fault))
+
+	close(in)
+}
+
+func TestExecutePipelinePartialResult(t *testing.T) {
+	g := func(f func(v interface{}) interface{}) Stage {
+		return func(in In) Out {
+			out := make(Bi)
+			go func() {
+				defer close(out)
+				for v := range in {
+					time.Sleep(sleepPerStage)
+					out <- f(v)
+				}
+			}()
+			return out
+		}
+	}
+
+	stages := []Stage{
+		g(func(v interface{}) interface{} { return v }),
+		g(func(v interface{}) interface{} { return v.(int) * 2 }),
+		g(func(v interface{}) interface{} { return v.(int) + 100 }),
+		g(func(v interface{}) interface{} { return strconv.Itoa(v.(int)) }),
+	}
+
+	in := make(Bi)
+	done := make(Bi)
+	data := []int{1, 2, 3, 4, 5}
+
+	go func() {
+		for _, v := range data {
+			in <- v
+		}
+		close(in)
+	}()
+
+	result := make([]string, 0, 10)
+	out := ExecutePipeline(in, done, stages...)
+	for s := range out {
+		result = append(result, s.(string))
+		if len(result) == 2 {
+			break
+		}
+	}
+
+	start := time.Now()
+	close(done)
+
+	require.Equal(t, []string{"102", "104"}, result)
+	require.Less(t, int64(time.Since(start)), int64(fault))
 }
