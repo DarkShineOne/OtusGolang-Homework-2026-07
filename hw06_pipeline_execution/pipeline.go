@@ -17,8 +17,7 @@ func forward(src In, done In, drainOnDone bool) Out {
 			case <-done:
 				close(out)
 				if drainOnDone {
-					for range src {
-						<-src
+					for range src { //nolint:revive
 					}
 				}
 				return
