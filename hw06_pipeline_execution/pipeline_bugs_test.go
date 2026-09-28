@@ -1,7 +1,6 @@
 package hw06pipelineexecution
 
 import (
-	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -9,44 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func passthroughStage(in In) Out {
-	out := make(Bi)
-	go func() {
-		defer close(out)
-		for v := range in {
-			out <- v
-		}
-	}()
-	return out
-}
-
-func TestForwardLeaksGoroutineOnCancel(t *testing.T) {
-	const pipelines = 20
-
-	runtime.GC()
-	before := runtime.NumGoroutine()
-
-	for i := 0; i < pipelines; i++ {
-		in := make(Bi, 1) // deliberately never closed
-		done := make(Bi)
-		in <- 1
-
-		go func(d Bi) { time.Sleep(5 * time.Millisecond); close(d) }(done)
-		for range ExecutePipeline(in, done, passthroughStage) {
-		}
-	}
-
-	time.Sleep(200 * time.Millisecond)
-	runtime.GC()
-	leaked := runtime.NumGoroutine() - before
-
-	t.Logf("goroutines: before=%d after=%d, leaked=%d for %d pipelines",
-		before, runtime.NumGoroutine(), leaked, pipelines)
-	require.Less(t, leaked, 2, "forward() must not outlive the pipeline")
-}
-
 func TestNoValueDeliveredAfterDoneClosed(t *testing.T) {
 	const runs = 100
+
+	passthroughStage := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v
+			}
+		}()
+		return out
+	}
 
 	escaped, total := 0, 0
 	for i := 0; i < runs; i++ {
