@@ -8,22 +8,20 @@ type (
 
 type Stage func(in In) (out Out)
 
-func forward(src In, done In) Out {
+func forward(src In, done In, drainOnDone bool) Out {
 	out := make(Bi)
 
 	go func() {
-		canceling := false
 		for {
-			if canceling {
-				if _, ok := <-src; !ok {
-					return
-				}
-				continue
-			}
 			select {
 			case <-done:
 				close(out)
-				canceling = true
+				if drainOnDone {
+					for range src {
+						<-src
+					}
+				}
+				return
 			case v, ok := <-src:
 				if !ok {
 					close(out)
@@ -33,7 +31,7 @@ func forward(src In, done In) Out {
 				case out <- v:
 				case <-done:
 					close(out)
-					canceling = true
+					return
 				}
 			}
 		}
@@ -43,11 +41,11 @@ func forward(src In, done In) Out {
 }
 
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-	cur := in
+	cur := forward(in, done, false)
 
 	for _, stage := range stages {
-		cur = stage(forward(cur, done))
+		cur = stage(forward(cur, done, true))
 	}
 
-	return forward(cur, done)
+	return forward(cur, done, true)
 }
