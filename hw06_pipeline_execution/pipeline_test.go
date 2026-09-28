@@ -278,7 +278,7 @@ func TestForwardLeaksGoroutineOnCancel(t *testing.T) {
 		in <- 1
 
 		go func(d Bi) { time.Sleep(5 * time.Millisecond); close(d) }(done)
-		for range ExecutePipeline(in, done, passthroughStage) {
+		for range ExecutePipeline(in, done, passthroughStage) { //nolint:revive
 		}
 	}
 
