@@ -71,6 +71,7 @@ func TestCopyErrors(t *testing.T) {
 		if _, err := os.Stat(os.DevNull); err != nil {
 			t.Skip("no", os.DevNull)
 		}
+
 		toPath := filepath.Join(t.TempDir(), "out.txt")
 		if err := Copy(os.DevNull, toPath, 0, 0); !errors.Is(err, ErrUnsupportedFile) {
 			t.Errorf("got error %v, want %v", err, ErrUnsupportedFile)
@@ -89,6 +90,7 @@ func TestCopyErrors(t *testing.T) {
 		if err := os.WriteFile(samePath, []byte("data"), 0o644); err != nil {
 			t.Fatalf("write: %v", err)
 		}
+
 		if err := Copy(samePath, samePath, 0, 0); !errors.Is(err, ErrSameFile) {
 			t.Errorf("got error %v, want %v", err, ErrSameFile)
 		}
@@ -123,10 +125,12 @@ func TestCopyEdgeCases(t *testing.T) {
 			if err := Copy(fromPath, toPath, tt.offset, tt.limit); err != nil {
 				t.Fatalf("Copy(offset=%d, limit=%d): %v", tt.offset, tt.limit, err)
 			}
+
 			got, err := os.ReadFile(toPath)
 			if err != nil {
 				t.Fatalf("read output: %v", err)
 			}
+
 			if !bytes.Equal(got, tt.want) {
 				t.Errorf("got %d bytes, want %d bytes", len(got), len(tt.want))
 			}
@@ -138,10 +142,12 @@ func TestCopyEdgeCases(t *testing.T) {
 		if err := Copy(filepath.Join("testdata", "empty.txt"), toPath, 0, 0); err != nil {
 			t.Fatalf("Copy: %v", err)
 		}
+
 		got, err := os.ReadFile(toPath)
 		if err != nil {
 			t.Fatalf("read output: %v", err)
 		}
+
 		if len(got) != 0 {
 			t.Errorf("got %d bytes, want 0", len(got))
 		}
@@ -152,13 +158,16 @@ func TestCopyEdgeCases(t *testing.T) {
 		if err := os.WriteFile(toPath, bytes.Repeat([]byte("x"), 4096), 0o644); err != nil {
 			t.Fatalf("prepare destination: %v", err)
 		}
+
 		if err := Copy(fromPath, toPath, 0, 10); err != nil {
 			t.Fatalf("Copy: %v", err)
 		}
+
 		got, err := os.ReadFile(toPath)
 		if err != nil {
 			t.Fatalf("read output: %v", err)
 		}
+
 		if !bytes.Equal(got, input[:10]) {
 			t.Errorf("got %d bytes, want %d bytes", len(got), 10)
 		}
@@ -192,6 +201,7 @@ func TestPercent(t *testing.T) {
 		}
 		prev = p
 	}
+
 	if prev != 100 {
 		t.Errorf("last percent = %d, want 100", prev)
 	}
