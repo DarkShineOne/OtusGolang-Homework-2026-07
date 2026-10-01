@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/cheggaaa/pb"
+	"github.com/cheggaaa/pb" ////nolint:depguard
 )
 
 var (
