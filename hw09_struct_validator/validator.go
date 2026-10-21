@@ -182,7 +182,7 @@ func validateString(fv reflect.Value, name, tag string) (ValidationErrors, error
 				})
 			}
 		case "regexp":
-			re, err := regexp.Compile(r.arg)
+			re, err := regexp.Compile("^(?:" + r.arg + ")$")
 			if err != nil {
 				return nil, fmt.Errorf("field %s: %w: %q is not a valid regexp", name, ErrInvalidTag, r.arg)
 			}
