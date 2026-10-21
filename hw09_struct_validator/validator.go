@@ -118,37 +118,43 @@ func validateField(fv reflect.Value, name, tag string) (ValidationErrors, error)
 }
 
 func validateSlice(fv reflect.Value, name, tag string) (ValidationErrors, error) {
-	var validateElem elemValidator
+	var validator elemValidator
 	switch fv.Type().Elem().Kind() {
 	case reflect.String:
-		validateElem = validateString
+		validator = validateString
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		validateElem = validateInt
+		validator = validateInt
 	default:
 		return nil, fmt.Errorf("field %s: %w", name, ErrUnsupportedType)
 	}
 
 	var errs ValidationErrors
-	for i := range fv.Len() {
-		elemErrs, progErr := validateElem(fv.Index(i), name, tag)
+	for i := 0; i < fv.Len(); i++ {
+		field := fv.Index(i)
+		validationErrs, progErr := validator(field, name, tag)
 		if progErr != nil {
 			return nil, progErr
 		}
-		errs = append(errs, elemErrs...)
+
+		errs = append(errs, validationErrs...)
 	}
+
 	return errs, nil
 }
 
 func parseRules(tag string) ([]rule, error) {
-	parts := strings.Split(tag, "|")
-	rules := make([]rule, 0, len(parts))
-	for _, part := range parts {
-		name, arg, ok := strings.Cut(part, ":")
+	tokens := strings.Split(tag, "|")
+	rules := make([]rule, 0, len(tokens))
+
+	for _, token := range tokens {
+		name, arg, ok := strings.Cut(token, ":")
 		if !ok || name == "" || arg == "" {
 			return nil, ErrInvalidTag
 		}
-		rules = append(rules, rule{name: name, arg: arg})
+
+		rules = append(rules, rule{name, arg})
 	}
+
 	return rules, nil
 }
 
@@ -160,8 +166,8 @@ func validateString(fv reflect.Value, name, tag string) (ValidationErrors, error
 
 	value := fv.String()
 	length := utf8.RuneCountInString(value)
-
 	var errs ValidationErrors
+
 	for _, r := range rules {
 		switch r.name {
 		case "len":
