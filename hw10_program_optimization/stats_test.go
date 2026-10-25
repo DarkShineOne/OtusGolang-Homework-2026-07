@@ -1,3 +1,4 @@
+//go:build !bench
 // +build !bench
 
 package hw10programoptimization
@@ -35,5 +36,55 @@ func TestGetDomainStat(t *testing.T) {
 		result, err := GetDomainStat(bytes.NewBufferString(data), "unknown")
 		require.NoError(t, err)
 		require.Equal(t, DomainStat{}, result)
+	})
+}
+
+func TestGetDomainStatEdgeCases(t *testing.T) {
+	t.Run("empty input", func(t *testing.T) {
+		result, err := GetDomainStat(bytes.NewBufferString(""), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{}, result)
+	})
+
+	t.Run("exact domain match", func(t *testing.T) {
+		data := `{"Email": "test@com"}`
+		result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{"com": 1}, result)
+	})
+
+	t.Run("uppercase domain in data", func(t *testing.T) {
+		data := `{"Email": "test@EXAMPLE.COM"}`
+		result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{"example.com": 1}, result)
+	})
+
+	t.Run("uppercase target domain", func(t *testing.T) {
+		data := `{"Email": "test@example.com"}`
+		result, err := GetDomainStat(bytes.NewBufferString(data), "COM")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{"example.com": 1}, result)
+	})
+
+	t.Run("missing email field", func(t *testing.T) {
+		data := `{"Name": "John", "Username": "johndoe"}`
+		result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{}, result)
+	})
+
+	t.Run("email without @ symbol", func(t *testing.T) {
+		data := `{"Email": "invalid-email-format"}`
+		result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{}, result)
+	})
+
+	t.Run("windows line endings (CRLF)", func(t *testing.T) {
+		data := "{\"Email\": \"test@example.com\"\r\n{\"Email\": \"test2@example.com\"}\r\n"
+		result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+		require.NoError(t, err)
+		require.Equal(t, DomainStat{"example.com": 2}, result)
 	})
 }
