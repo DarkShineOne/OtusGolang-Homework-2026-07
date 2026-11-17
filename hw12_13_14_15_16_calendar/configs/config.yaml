@@ -1,5 +1,12 @@
-[logger]
-level = "INFO"
+logger:
+  level: info
+  file: logs/calendar.log
 
-# TODO
-# ...
+http:
+  host: 0.0.0.0
+  port: 8080
+
+storage:
+  type: sql
+  dsn: postgres://local:local@127.0.0.1:5432/calendar?sslmode=disable
+# Для запуска без PostgreSQL type на memory; поле dsn можно удалить.

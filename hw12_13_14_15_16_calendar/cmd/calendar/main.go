@@ -3,21 +3,25 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/app"
+	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/logger"
+	internalhttp "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/server/http"
+	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage"
+	memorystorage "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage/memory"
+	sqlstorage "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage/sql"
 )
 
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "configs/config.yaml", "Path to configuration file")
 }
 
 func main() {
@@ -28,34 +32,78 @@ func main() {
 		return
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
-
-	storage := memorystorage.New()
-	calendar := app.New(logg, storage)
-
-	server := internalhttp.NewServer(logg, calendar)
-
-	ctx, cancel := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	defer cancel()
-
-	go func() {
-		<-ctx.Done()
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		defer cancel()
-
-		if err := server.Stop(ctx); err != nil {
-			logg.Error("failed to stop http server: " + err.Error())
-		}
-	}()
-
-	logg.Info("calendar is running...")
-
-	if err := server.Start(ctx); err != nil {
-		logg.Error("failed to start http server: " + err.Error())
-		cancel()
-		os.Exit(1) //nolint:gocritic
+	if err := run(configFile); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
+}
+
+func run(configPath string) error {
+	config, err := NewConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	logFile, err := openLogFile(config.Logger.File)
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+
+	logg, err := logger.New(config.Logger.Level, logFile)
+	if err != nil {
+		return fmt.Errorf("create logger: %w", err)
+	}
+
+	var eventStorage storage.Storage
+	var postgres *sqlstorage.Storage
+	switch config.Storage.Type {
+	case storageTypeMemory:
+		eventStorage = memorystorage.New()
+	case storageTypeSQL:
+		postgres, err = sqlstorage.New(config.Storage.DSN)
+		if err != nil {
+			return err
+		}
+		eventStorage = postgres
+	default:
+		return fmt.Errorf("unsupported storage type %q", config.Storage.Type)
+	}
+
+	if postgres != nil {
+		connectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = postgres.Connect(connectCtx)
+		cancel()
+		if err != nil {
+			_ = postgres.Close(context.Background())
+			return err
+		}
+		defer func() {
+			if err := postgres.Close(context.Background()); err != nil {
+				logg.Error("failed to close postgres: " + err.Error())
+			}
+		}()
+	}
+
+	calendar := app.New(logg, eventStorage)
+	server := internalhttp.NewServer(logg, calendar, config.HTTP.Host, config.HTTP.Port)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	logg.Info("calendar is running")
+	return server.Start(ctx)
+}
+
+func openLogFile(path string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create log directory: %w", err)
+	}
+
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("open log file: %w", err)
+	}
+
+	return file, nil
 }
