@@ -15,6 +15,7 @@ const (
 type Config struct {
 	Logger  LoggerConf  `yaml:"logger"`
 	HTTP    HTTPConf    `yaml:"http"`
+	GRPC    GRPCConf    `yaml:"grpc"`
 	Storage StorageConf `yaml:"storage"`
 }
 
@@ -24,6 +25,11 @@ type LoggerConf struct {
 }
 
 type HTTPConf struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+}
+
+type GRPCConf struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
 }
@@ -61,12 +67,12 @@ func (c Config) validate() error {
 		return fmt.Errorf("logger file is required")
 	}
 
-	if c.HTTP.Host == "" {
-		return fmt.Errorf("http host is required")
+	if err := validateEndpoint("http", c.HTTP.Host, c.HTTP.Port); err != nil {
+		return err
 	}
 
-	if c.HTTP.Port < 1 || c.HTTP.Port > 65535 {
-		return fmt.Errorf("http port must be between 1 and 65535")
+	if err := validateEndpoint("grpc", c.GRPC.Host, c.GRPC.Port); err != nil {
+		return err
 	}
 
 	switch c.Storage.Type {
@@ -79,5 +85,15 @@ func (c Config) validate() error {
 		return fmt.Errorf("unsupported storage type %q", c.Storage.Type)
 	}
 
+	return nil
+}
+
+func validateEndpoint(name, host string, port int) error {
+	if host == "" {
+		return fmt.Errorf("%s host is required", name)
+	}
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("%s port must be between 1 and 65535", name)
+	}
 	return nil
 }

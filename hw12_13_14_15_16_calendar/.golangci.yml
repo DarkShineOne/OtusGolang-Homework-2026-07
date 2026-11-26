@@ -18,6 +18,9 @@ linters-settings:
           - $gostd
           - github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar
           - github.com/jackc/pgx/v5
+          - golang.org/x/sync
+          - google.golang.org/grpc
+          - google.golang.org/protobuf
           - gopkg.in/yaml.v3
       Test:
         files:
@@ -28,7 +31,13 @@ linters-settings:
           - github.com/DATA-DOG/go-sqlmock
           - github.com/jackc/pgx/v5
           - github.com/stretchr/testify
+          - google.golang.org/grpc
+          - google.golang.org/protobuf
           - gopkg.in/yaml.v3
+  tagliatelle:
+    case:
+      rules:
+        json: snake
 issues:
   exclude-rules:
     - path: _test\.go

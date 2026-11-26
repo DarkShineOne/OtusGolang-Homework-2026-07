@@ -16,6 +16,9 @@ logger:
 http:
   host: 127.0.0.1
   port: 8888
+grpc:
+  host: 127.0.0.1
+  port: 9999
 storage:
   type: sql
   dsn: postgres://local:local@localhost:5432/calendar?sslmode=disable
@@ -25,6 +28,7 @@ storage:
 	require.NoError(t, err)
 	require.Equal(t, "debug", config.Logger.Level)
 	require.Equal(t, 8888, config.HTTP.Port)
+	require.Equal(t, 9999, config.GRPC.Port)
 	require.Equal(t, "sql", config.Storage.Type)
 }
 
@@ -34,6 +38,10 @@ func TestNewConfigValidation(t *testing.T) {
 		"invalid level":   validConfig("verbose", "memory", ""),
 		"invalid storage": validConfig("info", "file", ""),
 		"missing dsn":     validConfig("info", "sql", ""),
+		"missing grpc host": "logger:\n  level: info\n  file: logs/test.log\n" +
+			"http:\n  host: 127.0.0.1\n  port: 8080\n" +
+			"grpc:\n  host: \"\"\n  port: 9090\n" +
+			"storage:\n  type: memory\n  dsn: \"\"\n",
 	}
 	for name, content := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -48,6 +56,7 @@ func TestNewConfigValidation(t *testing.T) {
 func validConfig(level, storageType, dsn string) string {
 	return "logger:\n  level: " + level + "\n  file: logs/test.log\n" +
 		"http:\n  host: 127.0.0.1\n  port: 8080\n" +
+		"grpc:\n  host: 127.0.0.1\n  port: 9090\n" +
 		"storage:\n  type: " + storageType + "\n  dsn: " + dsn + "\n"
 }
 

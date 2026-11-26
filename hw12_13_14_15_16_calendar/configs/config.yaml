@@ -6,6 +6,10 @@ http:
   host: 0.0.0.0
   port: 8080
 
+grpc:
+  host: 0.0.0.0
+  port: 9090
+
 storage:
   type: sql
   dsn: postgres://local:local@127.0.0.1:5432/calendar?sslmode=disable

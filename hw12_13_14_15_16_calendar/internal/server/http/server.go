@@ -32,18 +32,23 @@ type Application interface {
 }
 
 func NewServer(logger Logger, application Application, host string, port int) *Server {
+	s := &Server{logger: logger, app: application}
+
 	mux := http.NewServeMux()
 	mux.Handle("/hello", loggingMiddleware(logger, http.HandlerFunc(hello)))
+	mux.Handle("POST /events", loggingMiddleware(logger, http.HandlerFunc(s.createEvent)))
+	mux.Handle("PUT /events/{id}", loggingMiddleware(logger, http.HandlerFunc(s.updateEvent)))
+	mux.Handle("DELETE /events/{id}", loggingMiddleware(logger, http.HandlerFunc(s.deleteEvent)))
+	mux.Handle("GET /events/day", loggingMiddleware(logger, http.HandlerFunc(s.listDayEvents)))
+	mux.Handle("GET /events/week", loggingMiddleware(logger, http.HandlerFunc(s.listWeekEvents)))
+	mux.Handle("GET /events/month", loggingMiddleware(logger, http.HandlerFunc(s.listMonthEvents)))
 
-	return &Server{
-		logger: logger,
-		app:    application,
-		server: &http.Server{
-			Addr:              net.JoinHostPort(host, strconv.Itoa(port)),
-			Handler:           mux,
-			ReadHeaderTimeout: 5 * time.Second,
-		},
+	s.server = &http.Server{
+		Addr:              net.JoinHostPort(host, strconv.Itoa(port)),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
+	return s
 }
 
 func (s *Server) Start(ctx context.Context) error {

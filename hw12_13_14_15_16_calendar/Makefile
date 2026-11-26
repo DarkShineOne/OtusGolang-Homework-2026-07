@@ -11,6 +11,8 @@ POSTGRES_PORT ?= 5432
 POSTGRES_CONTAINER := postgres-calendar
 POSTGRES_DSN ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@127.0.0.1:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 GOOSE_VERSION ?= v3.24.1
+PROTOC_GEN_GO_VERSION ?= v1.36.6
+PROTOC_GEN_GO_GRPC_VERSION ?= v1.5.1
 
 #Rabbit
 RABBIT_USER ?= rabbit
@@ -40,6 +42,9 @@ run-rabbit:
 migrate:
 	go run github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION) -dir migrations postgres "$(POSTGRES_DSN)" up
 
+generate: install-proto-deps
+	go generate ./...
+
 build:
 	go build -v -o $(BIN) -ldflags "$(LDFLAGS)" ./cmd/calendar
 
@@ -61,10 +66,14 @@ version: build
 test:
 	go test -race ./...
 
+install-proto-deps:
+	(which protoc-gen-go > /dev/null) || go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
+	(which protoc-gen-go-grpc > /dev/null) || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
+
 install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.63.4
 
 lint: install-lint-deps
 	golangci-lint run ./...
 
-.PHONY: build run build-img run-img version test lint install-lint-deps run-postgres run-rabbit migrate
+.PHONY: build run build-img run-img version test lint install-lint-deps install-proto-deps generate run-postgres run-rabbit migrate

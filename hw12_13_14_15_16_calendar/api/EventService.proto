@@ -2,6 +2,58 @@ syntax = "proto3";
 
 package event;
 
+option go_package = "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/server/grpc/pb;eventpb";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Event is a calendar event entity, reused across request and response messages.
 message Event {
-    // TODO
+    string id = 1;
+    string title = 2;
+    google.protobuf.Timestamp starts_at = 3;
+    google.protobuf.Duration duration = 4;
+    string description = 5;
+    string user_id = 6;
+    google.protobuf.Duration notify_before = 7;
+}
+
+message CreateEventRequest {
+    Event event = 1;
+}
+
+message CreateEventResponse {
+    Event event = 1;
+}
+
+message UpdateEventRequest {
+    string id = 1;
+    Event event = 2;
+}
+
+message UpdateEventResponse {
+    Event event = 1;
+}
+
+message DeleteEventRequest {
+    string id = 1;
+}
+
+message DeleteEventResponse {}
+
+message ListEventsRequest {
+    google.protobuf.Timestamp date = 1;
+}
+
+message ListEventsResponse {
+    repeated Event events = 1;
+}
+
+service EventService {
+    rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse);
+    rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse);
+    rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
+    rpc ListEventsForDay(ListEventsRequest) returns (ListEventsResponse);
+    rpc ListEventsForWeek(ListEventsRequest) returns (ListEventsResponse);
+    rpc ListEventsForMonth(ListEventsRequest) returns (ListEventsResponse);
 }

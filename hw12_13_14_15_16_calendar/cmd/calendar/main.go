@@ -12,10 +12,12 @@ import (
 
 	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/app"
 	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/logger"
+	internalgrpc "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/server/grpc"
 	internalhttp "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/server/http"
 	"github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage"
 	memorystorage "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage/memory"
 	sqlstorage "github.com/darkshineone/otusgolang-homework/hw12_13_14_15_calendar/internal/storage/sql"
+	"golang.org/x/sync/errgroup"
 )
 
 var configFile string
@@ -86,13 +88,22 @@ func run(configPath string) error {
 	}
 
 	calendar := app.New(logg, eventStorage)
-	server := internalhttp.NewServer(logg, calendar, config.HTTP.Host, config.HTTP.Port)
+	httpServer := internalhttp.NewServer(logg, calendar, config.HTTP.Host, config.HTTP.Port)
+	grpcServer := internalgrpc.NewServer(logg, calendar, config.GRPC.Host, config.GRPC.Port)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	logg.Info("calendar is running")
-	return server.Start(ctx)
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return httpServer.Start(groupCtx)
+	})
+	group.Go(func() error {
+		return grpcServer.Start(groupCtx)
+	})
+	return group.Wait()
 }
 
 func openLogFile(path string) (*os.File, error) {
